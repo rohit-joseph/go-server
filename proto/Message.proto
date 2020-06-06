@@ -1,0 +1,8 @@
+syntax = "proto3";
+package tutorial;
+
+message Msg {
+    bytes messageID = 1;
+    bytes payload = 2;
+    fixed64 checkSum = 3;
+}
