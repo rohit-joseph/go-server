@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	hlp "github.com/rohit-joseph/go-server/helpers"
 	pb "github.com/rohit-joseph/go-server/proto"
 )
 
@@ -47,6 +48,11 @@ func main() {
 		msg := &pb.Msg{}
 		if err := proto.Unmarshal(buffer[0:n], msg); err != nil {
 			fmt.Println(err)
+			continue
+		}
+
+		if hlp.VerifyCheckSum(msg.CheckSum, msg.MessageID, msg.Payload) == false {
+			continue
 		}
 
 		fmt.Println(msg.CheckSum)
