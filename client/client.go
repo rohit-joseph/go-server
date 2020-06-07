@@ -3,11 +3,13 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math/rand"
 	"net"
 	"os"
 	"strings"
 
 	"github.com/golang/protobuf/proto"
+	hlp "github.com/rohit-joseph/go-server/helpers"
 	pb "github.com/rohit-joseph/go-server/proto"
 )
 
@@ -31,9 +33,10 @@ func main() {
 
 	for {
 		msg := &pb.Msg{}
-		msg.MessageID = []byte{'c', 'b'}
-		msg.Payload = []byte{'d', 'b'}
-		msg.CheckSum = 12
+		msg.MessageID = genMsgID(16)
+		msg.Payload = genMsgID(25)
+		msg.CheckSum = hlp.GetCheckSum(msg.MessageID, msg.Payload)
+
 		out, err := proto.Marshal(msg)
 
 		reader := bufio.NewReader(os.Stdin)
@@ -59,4 +62,11 @@ func main() {
 		}
 		fmt.Printf("Reply: %s\n", string(buffer[0:n]))
 	}
+}
+
+func genMsgID(len int) []byte {
+	id := make([]byte, len)
+	rand.Read(id)
+	fmt.Println(id)
+	return id
 }
