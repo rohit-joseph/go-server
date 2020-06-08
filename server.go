@@ -1,29 +1,17 @@
-package main
+package server
 
 import (
 	"fmt"
 	"math/rand"
 	"net"
-	"os"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/rohit-joseph/go-server/proto"
-	hlp "github.com/rohit-joseph/go-server/server"
 )
 
-func random(min, max int) int {
-	return rand.Intn(max-min) + min
-}
-
-func main() {
-	arguments := os.Args
-	if len(arguments) == 1 {
-		fmt.Println("Please provide a port number!")
-		return
-	}
-	PORT := ":" + arguments[1]
-
+// Server running to respond to requests
+func Server(PORT string) {
 	s, err := net.ResolveUDPAddr("udp4", PORT)
 	printErr(err)
 
@@ -44,7 +32,7 @@ func main() {
 			continue
 		}
 
-		if hlp.VerifyCheckSum(msg) == false {
+		if VerifyCheckSum(msg) == false {
 			continue
 		}
 
@@ -54,11 +42,11 @@ func main() {
 			continue
 		}
 
-		payload, err := proto.Marshal(handleRequest(kvRequest))
+		payload, err := proto.Marshal(HandleRequest(kvRequest))
 		printErr(err)
 
 		msg.Payload = payload
-		msg.CheckSum = hlp.GetCheckSum(msg)
+		msg.CheckSum = GetCheckSum(msg)
 
 		data, err := proto.Marshal(msg)
 		printErr(err)
@@ -72,21 +60,4 @@ func printErr(err error) {
 	if err != nil {
 		fmt.Println(err)
 	}
-}
-
-func handleRequest(kvRequest *pb.KVRequest) *pb.KVResponse {
-	kvResponse := &pb.KVResponse{}
-	switch command := getCommand(kvRequest); command {
-	case "ISALIVE":
-		kvResponse.ErrCode = 0
-	default:
-		kvResponse.ErrCode = 5
-	}
-
-	kvResponse.ErrCode = 0
-	return kvResponse
-}
-
-func getCommand(kvRequest *pb.KVRequest) string {
-	return pb.KVRequest_CommandType_name[kvRequest.GetCommand()]
 }
