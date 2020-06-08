@@ -1,16 +1,14 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"math/rand"
 	"net"
 	"os"
-	"strings"
 
 	"github.com/golang/protobuf/proto"
-	hlp "github.com/rohit-joseph/go-server/helpers"
 	pb "github.com/rohit-joseph/go-server/proto"
+	hlp "github.com/rohit-joseph/go-server/server"
 )
 
 func main() {
@@ -31,42 +29,49 @@ func main() {
 	fmt.Printf("The UDP server is %s\n", c.RemoteAddr().String())
 	defer c.Close()
 
-	for {
-		msg := &pb.Msg{}
-		msg.MessageID = genMsgID(16)
-		msg.Payload = genMsgID(25)
-		msg.CheckSum = hlp.GetCheckSum(msg.MessageID, msg.Payload)
+	msg := makeIsAliveRequest()
+	out, err := proto.Marshal(msg)
+	_, err = c.Write(out)
 
-		out, err := proto.Marshal(msg)
-
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Print(">> ")
-		text, _ := reader.ReadString('\n')
-		data := []byte(text + "\n")
-		_, err = c.Write(out)
-		if strings.TrimSpace(string(data)) == "STOP" {
-			fmt.Println("Exiting UDP client!")
-			return
-		}
-
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
-		buffer := make([]byte, 1024)
-		n, _, err := c.ReadFromUDP(buffer)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		fmt.Printf("Reply: %s\n", string(buffer[0:n]))
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
+
+	buffer := make([]byte, 1024)
+	n, _, err := c.ReadFromUDP(buffer)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	kvResponse := &pb.KVResponse{}
+	err = proto.Unmarshal(buffer[0:n], kvResponse)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println(kvResponse.GetErrCode())
+}
+
+func makeIsAliveRequest() *pb.Msg {
+	kvRequest := &pb.KVRequest{}
+	kvRequest.Command = pb.KVRequest_CommandType_value["ISALIVE"]
+	payload, _ := proto.Marshal(kvRequest)
+	return makeMessage(payload)
+}
+
+func makeMessage(payload []byte) *pb.Msg {
+	msg := &pb.Msg{}
+	msg.MessageID = genMsgID(16)
+	msg.Payload = payload
+	msg.CheckSum = hlp.GetCheckSum(msg)
+	return msg
 }
 
 func genMsgID(len int) []byte {
 	id := make([]byte, len)
 	rand.Read(id)
-	fmt.Println(id)
 	return id
 }

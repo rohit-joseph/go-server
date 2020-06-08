@@ -2,8 +2,19 @@ syntax = "proto3";
 package proto;
 
 message KVRequest {
-    uint32 command = 1;
+    int32 command = 1;
     bytes key = 2;
     bytes value = 3;
     int32 version = 4;
+
+    enum CommandType {
+        ISALIVE = 0;
+        PUT = 1;
+        GET = 2;
+        REMOVE = 3;
+        SHUTDOWN = 4;
+        WIPEOUT = 5;
+        GETPID = 6;
+        GETMEMBERSHIPCOUNT = 7;
+    }
 }
