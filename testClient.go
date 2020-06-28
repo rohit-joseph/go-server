@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"log"
 	"net"
 
 	"github.com/golang/protobuf/proto"
@@ -24,33 +23,68 @@ func TestClient(CONNECT string) {
 	defer c.Close()
 
 	testIsAliveRequest()
+	testPutGetRequest()
 }
 
 func testIsAliveRequest() {
 	msg := MakeIsAliveRequest()
-	out, err := proto.Marshal(msg)
-	_, err = c.Write(out)
 
-	if err != nil {
-		fmt.Println(err)
-		return
+	writeToConnection(msg)
+
+	msg = readFromConnection()
+
+	if s := checkSuccess(msg); s == true {
+		fmt.Println("Test: is alive success")
+	} else {
+		fmt.Println("Failed is alive")
 	}
+}
 
-	buffer := make([]byte, 1024)
-	n, _, err := c.ReadFromUDP(buffer)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+func testPutGetRequest() {
+	key := GenRandomSlice(16)
+	value := GenRandomSlice(100)
+	var version int32 = 0
 
+	msg := MakePutRequest(key, value, version)
+	writeToConnection(msg)
+
+	msg = readFromConnection()
+
+	checkSuccess(msg)
+
+	msg = MakeGetRequest(key)
+	writeToConnection(msg)
+
+	msg = readFromConnection()
+
+	checkSuccess(msg)
 	kvResponse := &pb.KVResponse{}
-	err = proto.Unmarshal(buffer[0:n], kvResponse)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	_ = proto.Unmarshal(msg.GetPayload(), kvResponse)
 
-	if kvResponse.GetErrCode() != 0 {
-		log.Println(kvResponse.GetErrCode())
+	if string(kvResponse.GetValue()) != string(value) || kvResponse.GetVersion() != version {
+		fmt.Println("Failed put and get")
+	} else {
+		fmt.Println("Test: put and get success")
 	}
+}
+
+func checkSuccess(msg *pb.Msg) bool {
+	kvResponse := &pb.KVResponse{}
+	_ = proto.Unmarshal(msg.GetPayload(), kvResponse)
+
+	return kvResponse.GetErrCode() == 0
+}
+
+func writeToConnection(msg *pb.Msg) {
+	out, _ := proto.Marshal(msg)
+	_, _ = c.Write(out)
+}
+
+func readFromConnection() *pb.Msg {
+	buffer := make([]byte, 1024)
+	n, _, _ := c.ReadFromUDP(buffer)
+
+	msg := &pb.Msg{}
+	_ = proto.Unmarshal(buffer[0:n], msg)
+	return msg
 }

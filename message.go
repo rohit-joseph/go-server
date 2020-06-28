@@ -23,10 +23,19 @@ const (
 )
 
 // Export response code enums
-const ()
+const (
+	SUCCESS                 uint32 = 0
+	NONEXISTENTKEY          uint32 = 1
+	OUTOFSPACE              uint32 = 2
+	TEMPORARYSYSTEMOVERLOAD uint32 = 3
+	INTERNALKVSTOREFAILURE  uint32 = 4
+	UNRECOGNIZEDCOMMAND     uint32 = 5
+	INVALIDKEY              uint32 = 6
+	INVALIDVALUE            uint32 = 7
+)
 
-// GenMsgID returns a random byte slice of the specified length
-func GenMsgID(len int) []byte {
+// GenRandomSlice returns a random byte slice of the specified length
+func GenRandomSlice(len int) []byte {
 	id := make([]byte, len)
 	rand.Read(id)
 	return id
@@ -41,9 +50,41 @@ func MakeIsAliveRequest() *pb.Msg {
 	return makeMessage(payload)
 }
 
+// MakePutRequest returns a protobuf message
+// Puts a key, value, and version into the kvStore
+func MakePutRequest(key []byte, value []byte, version int32) *pb.Msg {
+	kvRequest := &pb.KVRequest{}
+	kvRequest.Command = PUT
+	kvRequest.Key = key
+	kvRequest.Value = value
+	kvRequest.Version = version
+	payload, _ := proto.Marshal(kvRequest)
+	return makeMessage(payload)
+}
+
+// MakeGetRequest returns a protobuf message
+// Gets a key from the kvStore
+func MakeGetRequest(key []byte) *pb.Msg {
+	kvRequest := &pb.KVRequest{}
+	kvRequest.Command = GET
+	kvRequest.Key = key
+	payload, _ := proto.Marshal(kvRequest)
+	return makeMessage(payload)
+}
+
+// MakeRemoveRequest returns a protobuf message
+// Removes a key from the kvStore
+func MakeRemoveRequest(key []byte) *pb.Msg {
+	kvRequest := &pb.KVRequest{}
+	kvRequest.Command = REMOVE
+	kvRequest.Key = key
+	payload, _ := proto.Marshal(kvRequest)
+	return makeMessage(payload)
+}
+
 func makeMessage(payload []byte) *pb.Msg {
 	msg := &pb.Msg{}
-	msg.MessageID = GenMsgID(16)
+	msg.MessageID = GenRandomSlice(16)
 	msg.Payload = payload
 	msg.CheckSum = GetCheckSum(msg)
 	return msg
