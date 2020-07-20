@@ -35,6 +35,29 @@ const (
 	INVALIDVALUE            uint32 = 7
 )
 
+func stringErrCode(errCode uint32) string {
+	switch errCode {
+	case SUCCESS:
+		return "SUCCESS"
+	case NONEXISTENTKEY:
+		return "NONEXISTENTKEY"
+	case OUTOFSPACE:
+		return "OUTOFSPACE"
+	case TEMPORARYSYSTEMOVERLOAD:
+		return "TEMPORARYSYSTEMOVERLOAD"
+	case INTERNALKVSTOREFAILURE:
+		return "INTERNALKVSTOREFAILURE"
+	case UNRECOGNIZEDCOMMAND:
+		return "UNRECOGNIZEDCOMMAND"
+	case INVALIDKEY:
+		return "INVALIDKEY"
+	case INVALIDVALUE:
+		return "INVALIDVALUE"
+	default:
+		return "UNDEFINEDERRCODE"
+	}
+}
+
 // GenRandomSlice returns a random byte slice of the specified length
 func GenRandomSlice(len int) []byte {
 	id := make([]byte, len)
@@ -94,7 +117,7 @@ func MakeRemoveRequest(key []byte) *pb.Msg {
 
 // MakeShutDownRequest returns a protobuf message
 // Shutdown server
-func MakeShutDownRequest(key []byte) *pb.Msg {
+func MakeShutDownRequest() *pb.Msg {
 	kvRequest := &pb.KVRequest{}
 	kvRequest.Command = SHUTDOWN
 	payload, err := proto.Marshal(kvRequest)

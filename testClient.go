@@ -2,13 +2,16 @@ package server
 
 import (
 	"fmt"
+	"log"
 	"net"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/rohit-joseph/go-server/proto"
 )
 
 var c *net.UDPConn
+var timeout = 100
 
 // TestClient runs the test client
 func TestClient(CONNECT string) {
@@ -28,57 +31,100 @@ func TestClient(CONNECT string) {
 }
 
 func testIsAliveRequest() {
+	testName := "ISALIVE TEST: "
 	msg := MakeIsAliveRequest()
+	msg = requestReply(msg)
 
-	writeToConnection(msg)
-
-	msg = readFromConnection()
-
-	if s := checkSuccess(msg); s == true {
-		fmt.Println("Test: is alive success")
-	} else {
-		fmt.Println("Failed is alive")
+	if msg == nil {
+		fmt.Println(testName + "TIMEOUT")
+		return
 	}
+
+	s := getErrCode(msg)
+	fmt.Println(testName + stringErrCode(s))
 }
 
 func testPutGetRequest() {
+	testName := "PUT and GET TEST: "
 	key := GenRandomSlice(16)
 	value := GenRandomSlice(100)
 	var version int32 = 0
 
 	msg := MakePutRequest(key, value, version)
-	writeToConnection(msg)
+	msg = requestReply(msg)
 
-	msg = readFromConnection()
+	if msg == nil {
+		fmt.Println(testName + "TIMEOUT")
+		return
+	}
 
-	checkSuccess(msg)
+	if s := getErrCode(msg); s != SUCCESS {
+		fmt.Println(testName + stringErrCode(s))
+		return
+	}
 
 	msg = MakeGetRequest(key)
-	writeToConnection(msg)
-
-	msg = readFromConnection()
-
-	checkSuccess(msg)
-	kvResponse := &pb.KVResponse{}
-	_ = proto.Unmarshal(msg.GetPayload(), kvResponse)
-
-	if string(kvResponse.GetValue()) != string(value) || kvResponse.GetVersion() != version {
-		fmt.Println("Failed put and get")
-	} else {
-		fmt.Println("Test: put and get success")
+	msg = requestReply(msg)
+	if msg == nil {
+		fmt.Println(testName + "TIMEOUT")
+		return
 	}
+
+	if s := getErrCode(msg); s == SUCCESS {
+		kvResponse := getdPayload(msg)
+
+		if string(kvResponse.GetValue()) != string(value) || kvResponse.GetVersion() != version {
+			fmt.Println(testName + "PUT and GET values did not match")
+		} else {
+			fmt.Println(testName + stringErrCode(s))
+		}
+	} else {
+		fmt.Println(testName + stringErrCode(s))
+	}
+
 }
 
 func shutdown() {
-	msg := MakeShutDownRequest(key, value, version)
+	testName := "SHUTDOWN TEST: "
+	msg := MakeShutDownRequest()
 	writeToConnection(msg)
+
+	msg = MakeIsAliveRequest()
+	msg = requestReply(msg)
+
+	if msg == nil {
+		fmt.Println(testName + "SUCCESS")
+		return
+	}
 }
 
-func checkSuccess(msg *pb.Msg) bool {
+func requestReply(msg *pb.Msg) *pb.Msg {
+	i := 1
+	for i <= 4 {
+		writeToConnection(msg)
+		delay := time.Duration(timeout * i * 2)
+		c.SetReadDeadline(time.Now().Add(time.Millisecond * delay))
+		ret := readFromConnection()
+		if ret != nil {
+			return ret
+		}
+		i++
+	}
+	return nil
+}
+
+func getErrCode(msg *pb.Msg) uint32 {
 	kvResponse := &pb.KVResponse{}
 	_ = proto.Unmarshal(msg.GetPayload(), kvResponse)
 
-	return kvResponse.GetErrCode() == 0
+	return kvResponse.GetErrCode()
+}
+
+func getdPayload(msg *pb.Msg) *pb.KVResponse {
+	kvResponse := &pb.KVResponse{}
+	_ = proto.Unmarshal(msg.GetPayload(), kvResponse)
+
+	return kvResponse
 }
 
 func writeToConnection(msg *pb.Msg) {
@@ -88,9 +134,14 @@ func writeToConnection(msg *pb.Msg) {
 
 func readFromConnection() *pb.Msg {
 	buffer := make([]byte, 1024)
-	n, _, _ := c.ReadFromUDP(buffer)
+	n, _, err := c.ReadFromUDP(buffer)
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
 
 	msg := &pb.Msg{}
-	_ = proto.Unmarshal(buffer[0:n], msg)
+	err = proto.Unmarshal(buffer[0:n], msg)
+	log.Println(err)
 	return msg
 }
