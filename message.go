@@ -92,6 +92,18 @@ func MakeRemoveRequest(key []byte) *pb.Msg {
 	return makeMessage(payload)
 }
 
+// MakeShutDownRequest returns a protobuf message
+// Shutdown server
+func MakeShutDownRequest(key []byte) *pb.Msg {
+	kvRequest := &pb.KVRequest{}
+	kvRequest.Command = SHUTDOWN
+	payload, err := proto.Marshal(kvRequest)
+	if err != nil {
+		log.Println(err.Error())
+	}
+	return makeMessage(payload)
+}
+
 func makeMessage(payload []byte) *pb.Msg {
 	msg := &pb.Msg{}
 	msg.MessageID = GenRandomSlice(16)

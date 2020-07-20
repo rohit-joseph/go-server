@@ -24,6 +24,7 @@ func TestClient(CONNECT string) {
 
 	testIsAliveRequest()
 	testPutGetRequest()
+	shutdown()
 }
 
 func testIsAliveRequest() {
@@ -66,6 +67,11 @@ func testPutGetRequest() {
 	} else {
 		fmt.Println("Test: put and get success")
 	}
+}
+
+func shutdown() {
+	msg := MakeShutDownRequest(key, value, version)
+	writeToConnection(msg)
 }
 
 func checkSuccess(msg *pb.Msg) bool {

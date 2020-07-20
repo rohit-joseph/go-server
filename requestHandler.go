@@ -1,6 +1,8 @@
 package server
 
 import (
+	"os"
+
 	pb "github.com/rohit-joseph/go-server/proto"
 )
 
@@ -26,6 +28,8 @@ func HandleRequest(kvRequest *pb.KVRequest) *pb.KVResponse {
 			kvResponse.Value = valVerPair.value
 			kvResponse.Version = valVerPair.version
 		}
+	case SHUTDOWN:
+		os.Exit(3)
 	default:
 		kvResponse.ErrCode = UNRECOGNIZEDCOMMAND
 	}
