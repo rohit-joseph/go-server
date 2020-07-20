@@ -33,7 +33,7 @@ func RemoveKVP(key []byte) {
 	delete(kvStore, k)
 }
 
-// ClearKVP removes all elemets from the store
+// ClearKVStore removes all elemets from the store
 func ClearKVStore() {
 	kvStore = nil
 	kvStore = make(map[string]ValVerPair)
