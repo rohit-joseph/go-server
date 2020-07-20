@@ -30,6 +30,12 @@ func HandleRequest(kvRequest *pb.KVRequest) *pb.KVResponse {
 		}
 	case SHUTDOWN:
 		os.Exit(3)
+	case WIPEOUT:
+		ClearKVStore()
+	case GETPID:
+		kvResponse.Pid = int32(os.Getpid())
+	case GETMEMBERSHIPCOUNT:
+		kvResponse.MembershipCount = 1
 	default:
 		kvResponse.ErrCode = UNRECOGNIZEDCOMMAND
 	}

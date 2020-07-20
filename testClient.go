@@ -27,6 +27,9 @@ func TestClient(CONNECT string) {
 
 	testIsAliveRequest()
 	testPutGetRequest()
+	testWipeout()
+	testGetPid()
+	testGetMembershipCount()
 	shutdown()
 }
 
@@ -71,7 +74,7 @@ func testPutGetRequest() {
 	}
 
 	if s := getErrCode(msg); s == SUCCESS {
-		kvResponse := getdPayload(msg)
+		kvResponse := getPayload(msg)
 
 		if string(kvResponse.GetValue()) != string(value) || kvResponse.GetVersion() != version {
 			fmt.Println(testName + "PUT and GET values did not match")
@@ -81,7 +84,97 @@ func testPutGetRequest() {
 	} else {
 		fmt.Println(testName + stringErrCode(s))
 	}
+}
 
+func testWipeout() {
+	testName := "WIPEOUT TEST: "
+	key := GenRandomSlice(16)
+	value := GenRandomSlice(100)
+	var version int32 = 0
+
+	msg := MakePutRequest(key, value, version)
+	msg = requestReply(msg)
+
+	if msg == nil {
+		fmt.Println(testName + "TIMEOUT")
+		return
+	}
+
+	if s := getErrCode(msg); s != SUCCESS {
+		fmt.Println(testName + stringErrCode(s))
+		return
+	}
+
+	msg = MakeWipeoutRequest()
+	msg = requestReply(msg)
+	if msg == nil {
+		fmt.Println(testName + "TIMEOUT")
+		return
+	}
+
+	if s := getErrCode(msg); s != SUCCESS {
+		fmt.Println(testName + stringErrCode(s))
+		return
+	}
+
+	msg = MakeGetRequest(key)
+	msg = requestReply(msg)
+	if msg == nil {
+		fmt.Println(testName + "TIMEOUT")
+		return
+	}
+
+	if s := getErrCode(msg); s == NONEXISTENTKEY {
+		fmt.Println(testName + "SUCCESS")
+	} else {
+		fmt.Println(testName + "FAILED with err code: " + stringErrCode(s))
+	}
+}
+
+func testGetPid() {
+	testName := "GETPID TEST: "
+	msg := MakeGetPID()
+	msg = requestReply(msg)
+
+	if msg == nil {
+		fmt.Println(testName + "TIMEOUT")
+		return
+	}
+
+	if s := getErrCode(msg); s == SUCCESS {
+		kvResponse := getPayload(msg)
+
+		if kvResponse.GetPid() != 0 {
+			fmt.Println(testName + stringErrCode(s))
+		} else {
+			fmt.Println(testName + "FAILED")
+		}
+	} else {
+		fmt.Println(testName + stringErrCode(s))
+	}
+}
+
+func testGetMembershipCount() {
+	testName := "GETMEMBERSHIPCOUNT TEST: "
+	msg := MakeGetMembershipCount()
+	msg = requestReply(msg)
+
+	if msg == nil {
+		fmt.Println(testName + "TIMEOUT")
+		return
+	}
+
+	if s := getErrCode(msg); s == SUCCESS {
+		kvResponse := getPayload(msg)
+
+		if kvResponse.GetMembershipCount() == 1 {
+			fmt.Println(testName + stringErrCode(s))
+		} else {
+			fmt.Println(testName + "FAILED")
+		}
+	} else {
+		fmt.Println(testName + stringErrCode(s))
+	}
 }
 
 func shutdown() {
@@ -120,7 +213,7 @@ func getErrCode(msg *pb.Msg) uint32 {
 	return kvResponse.GetErrCode()
 }
 
-func getdPayload(msg *pb.Msg) *pb.KVResponse {
+func getPayload(msg *pb.Msg) *pb.KVResponse {
 	kvResponse := &pb.KVResponse{}
 	_ = proto.Unmarshal(msg.GetPayload(), kvResponse)
 

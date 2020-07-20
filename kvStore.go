@@ -6,7 +6,11 @@ type ValVerPair struct {
 	version int32
 }
 
-var kvStore = make(map[string]ValVerPair)
+var kvStore map[string]ValVerPair
+
+func init() {
+	kvStore = make(map[string]ValVerPair)
+}
 
 // PutKVP puts a value into the store
 func PutKVP(key []byte, valVer ValVerPair) int {
@@ -27,4 +31,10 @@ func GetKVP(key []byte) ValVerPair {
 func RemoveKVP(key []byte) {
 	k := string(key)
 	delete(kvStore, k)
+}
+
+// ClearKVP removes all elemets from the store
+func ClearKVStore() {
+	kvStore = nil
+	kvStore = make(map[string]ValVerPair)
 }

@@ -127,6 +127,42 @@ func MakeShutDownRequest() *pb.Msg {
 	return makeMessage(payload)
 }
 
+// MakeWipeoutRequest returns a protobuf message
+// Clears kv store
+func MakeWipeoutRequest() *pb.Msg {
+	kvRequest := &pb.KVRequest{}
+	kvRequest.Command = WIPEOUT
+	payload, err := proto.Marshal(kvRequest)
+	if err != nil {
+		log.Println(err.Error())
+	}
+	return makeMessage(payload)
+}
+
+// MakeGetPID returns a protobuf message
+// Gets server pid
+func MakeGetPID() *pb.Msg {
+	kvRequest := &pb.KVRequest{}
+	kvRequest.Command = GETPID
+	payload, err := proto.Marshal(kvRequest)
+	if err != nil {
+		log.Println(err.Error())
+	}
+	return makeMessage(payload)
+}
+
+// MakeGetMembershipCount returns a protobuf message
+// Gets server pid
+func MakeGetMembershipCount() *pb.Msg {
+	kvRequest := &pb.KVRequest{}
+	kvRequest.Command = GETMEMBERSHIPCOUNT
+	payload, err := proto.Marshal(kvRequest)
+	if err != nil {
+		log.Println(err.Error())
+	}
+	return makeMessage(payload)
+}
+
 func makeMessage(payload []byte) *pb.Msg {
 	msg := &pb.Msg{}
 	msg.MessageID = GenRandomSlice(16)
