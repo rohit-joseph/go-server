@@ -1,7 +1,7 @@
 package server
 
 import (
-	"fmt"
+	"log"
 	"math/rand"
 	"net"
 	"time"
@@ -10,14 +10,21 @@ import (
 	pb "github.com/rohit-joseph/go-server/proto"
 )
 
+func init() {
+	CreateLogger()
+}
+
 // Server running to respond to requests
 func Server(PORT string) {
 	s, err := net.ResolveUDPAddr("udp4", PORT)
-	printErr(err)
+	if err != nil {
+		log.Println(err)
+	}
 
 	connection, err := net.ListenUDP("udp4", s)
-
-	printErr(err)
+	if err != nil {
+		log.Println(err)
+	}
 
 	defer connection.Close()
 	buffer := make([]byte, 2048)
@@ -28,7 +35,7 @@ func Server(PORT string) {
 
 		msg := &pb.Msg{}
 		if err := proto.Unmarshal(buffer[0:n], msg); err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			continue
 		}
 
@@ -38,26 +45,26 @@ func Server(PORT string) {
 
 		kvRequest := &pb.KVRequest{}
 		if err = proto.Unmarshal(msg.GetPayload(), kvRequest); err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			continue
 		}
 
 		payload, err := proto.Marshal(HandleRequest(kvRequest))
-		printErr(err)
+		if err != nil {
+			log.Println(err)
+		}
 
 		msg.Payload = payload
 		msg.CheckSum = GetCheckSum(msg)
 
 		data, err := proto.Marshal(msg)
-		printErr(err)
+		if err != nil {
+			log.Println(err)
+		}
 
 		_, err = connection.WriteToUDP(data, addr)
-		printErr(err)
-	}
-}
-
-func printErr(err error) {
-	if err != nil {
-		fmt.Println(err)
+		if err != nil {
+			log.Println(err)
+		}
 	}
 }

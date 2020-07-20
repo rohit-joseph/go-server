@@ -2,6 +2,7 @@ package server
 
 import (
 	"crypto/rand"
+	"log"
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/rohit-joseph/go-server/proto"
@@ -58,7 +59,10 @@ func MakePutRequest(key []byte, value []byte, version int32) *pb.Msg {
 	kvRequest.Key = key
 	kvRequest.Value = value
 	kvRequest.Version = version
-	payload, _ := proto.Marshal(kvRequest)
+	payload, err := proto.Marshal(kvRequest)
+	if err != nil {
+		log.Println(err.Error())
+	}
 	return makeMessage(payload)
 }
 
@@ -68,7 +72,10 @@ func MakeGetRequest(key []byte) *pb.Msg {
 	kvRequest := &pb.KVRequest{}
 	kvRequest.Command = GET
 	kvRequest.Key = key
-	payload, _ := proto.Marshal(kvRequest)
+	payload, err := proto.Marshal(kvRequest)
+	if err != nil {
+		log.Println(err.Error())
+	}
 	return makeMessage(payload)
 }
 
@@ -78,7 +85,10 @@ func MakeRemoveRequest(key []byte) *pb.Msg {
 	kvRequest := &pb.KVRequest{}
 	kvRequest.Command = REMOVE
 	kvRequest.Key = key
-	payload, _ := proto.Marshal(kvRequest)
+	payload, err := proto.Marshal(kvRequest)
+	if err != nil {
+		log.Println(err.Error())
+	}
 	return makeMessage(payload)
 }
 
