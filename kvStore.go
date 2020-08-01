@@ -28,9 +28,13 @@ func GetKVP(key []byte) ValVerPair {
 }
 
 // RemoveKVP deletes a KVPair from the store
-func RemoveKVP(key []byte) {
+func RemoveKVP(key []byte) bool {
 	k := string(key)
+	if kvStore[k].value == nil {
+		return false
+	}
 	delete(kvStore, k)
+	return true
 }
 
 // ClearKVStore removes all elemets from the store

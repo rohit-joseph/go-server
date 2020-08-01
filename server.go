@@ -11,7 +11,8 @@ import (
 )
 
 func init() {
-	CreateLogger()
+	// CreateLogger()
+	CreateCache()
 }
 
 // Server running to respond to requests
@@ -32,6 +33,7 @@ func Server(PORT string) {
 
 	for {
 		n, addr, err := connection.ReadFromUDP(buffer)
+		var data []byte
 
 		msg := &pb.Msg{}
 		if err := proto.Unmarshal(buffer[0:n], msg); err != nil {
@@ -43,23 +45,28 @@ func Server(PORT string) {
 			continue
 		}
 
-		kvRequest := &pb.KVRequest{}
-		if err = proto.Unmarshal(msg.GetPayload(), kvRequest); err != nil {
-			log.Println(err)
-			continue
-		}
+		if x, found := GetCache(msg.GetMessageID()); found {
+			data = *x
+		} else {
+			kvRequest := &pb.KVRequest{}
+			if err = proto.Unmarshal(msg.GetPayload(), kvRequest); err != nil {
+				log.Println(err)
+				continue
+			}
 
-		payload, err := proto.Marshal(HandleRequest(kvRequest))
-		if err != nil {
-			log.Println(err)
-		}
+			payload, err := proto.Marshal(HandleRequest(kvRequest))
+			if err != nil {
+				log.Println(err)
+			}
 
-		msg.Payload = payload
-		msg.CheckSum = GetCheckSum(msg)
+			msg.Payload = payload
+			msg.CheckSum = GetCheckSum(msg)
 
-		data, err := proto.Marshal(msg)
-		if err != nil {
-			log.Println(err)
+			data, err = proto.Marshal(msg)
+			PutCache(msg.GetMessageID(), data)
+			if err != nil {
+				log.Println(err)
+			}
 		}
 
 		_, err = connection.WriteToUDP(data, addr)

@@ -28,6 +28,12 @@ func HandleRequest(kvRequest *pb.KVRequest) *pb.KVResponse {
 			kvResponse.Value = valVerPair.value
 			kvResponse.Version = valVerPair.version
 		}
+	case REMOVE:
+		if ret := RemoveKVP(kvRequest.GetKey()); ret {
+			kvResponse.ErrCode = SUCCESS
+		} else {
+			kvResponse.ErrCode = INVALIDKEY
+		}
 	case SHUTDOWN:
 		os.Exit(3)
 	case WIPEOUT:

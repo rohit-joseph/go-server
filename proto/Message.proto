@@ -4,5 +4,5 @@ package proto;
 message Msg {
     bytes messageID = 1;
     bytes payload = 2;
-    fixed64 checkSum = 3;
+    fixed32 checkSum = 3;
 }

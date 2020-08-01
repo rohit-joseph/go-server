@@ -25,17 +25,17 @@ const (
 
 // Export response code enums
 const (
-	SUCCESS                 uint32 = 0
-	NONEXISTENTKEY          uint32 = 1
-	OUTOFSPACE              uint32 = 2
-	TEMPORARYSYSTEMOVERLOAD uint32 = 3
-	INTERNALKVSTOREFAILURE  uint32 = 4
-	UNRECOGNIZEDCOMMAND     uint32 = 5
-	INVALIDKEY              uint32 = 6
-	INVALIDVALUE            uint32 = 7
+	SUCCESS                 int32 = 0
+	NONEXISTENTKEY          int32 = 1
+	OUTOFSPACE              int32 = 2
+	TEMPORARYSYSTEMOVERLOAD int32 = 3
+	INTERNALKVSTOREFAILURE  int32 = 4
+	UNRECOGNIZEDCOMMAND     int32 = 5
+	INVALIDKEY              int32 = 6
+	INVALIDVALUE            int32 = 7
 )
 
-func stringErrCode(errCode uint32) string {
+func stringErrCode(errCode int32) string {
 	switch errCode {
 	case SUCCESS:
 		return "SUCCESS"

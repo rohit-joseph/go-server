@@ -2,7 +2,7 @@ syntax = "proto3";
 package proto;
 
 message KVResponse {
-    uint32 errCode = 1;
+    int32 errCode = 1;
     bytes value = 2;
     int32 pid = 3;
     int32 version = 4;

@@ -30,7 +30,12 @@ func TestClient(CONNECT string) {
 	testWipeout()
 	testGetPid()
 	testGetMembershipCount()
-	shutdown()
+	testAtMostOnceSemantics()
+	performanceTest(1, 5)
+	performanceTest(16, 5)
+	performanceTest(32, 5)
+	performanceTest(64, 5)
+	// shutdown()
 }
 
 func testIsAliveRequest() {
@@ -177,6 +182,131 @@ func testGetMembershipCount() {
 	}
 }
 
+func testAtMostOnceSemantics() {
+	testName := "ATMOSTONCESEMANTICS TEST: "
+	key := GenRandomSlice(16)
+	value := GenRandomSlice(100)
+	var version int32 = 0
+
+	putMessage := MakePutRequest(key, value, version)
+	putMessage = requestReply(putMessage)
+	if putMessage == nil {
+		fmt.Println(testName + "TIMEOUT")
+		return
+	}
+
+	if s := getErrCode(putMessage); s != SUCCESS {
+		fmt.Println(testName + stringErrCode(s))
+		return
+	}
+
+	removeMsg1 := MakeRemoveRequest(key)
+	removeMsg1 = requestReply(removeMsg1)
+	if removeMsg1 == nil {
+		fmt.Println(testName + "TIMEOUT")
+		return
+	}
+
+	if s := getErrCode(removeMsg1); s != SUCCESS {
+		fmt.Println(testName + stringErrCode(s))
+		return
+	}
+
+	removeMsg2 := MakeRemoveRequest(key)
+	removeMsg2 = requestReply(removeMsg2)
+	if removeMsg2 == nil {
+		fmt.Println(testName + "TIMEOUT")
+		return
+	}
+
+	if s := getErrCode(removeMsg2); s != INVALIDKEY {
+		fmt.Println(testName + "FAILED")
+		return
+	}
+
+	removeMsg1 = requestReply(removeMsg1)
+	if removeMsg1 == nil {
+		fmt.Println(testName + "TIMEOUT")
+		return
+	}
+	if s := getErrCode(removeMsg1); s != SUCCESS {
+		fmt.Println(testName + stringErrCode(s))
+		return
+	}
+
+	removeMsg2 = requestReply(removeMsg2)
+	if removeMsg2 == nil {
+		fmt.Println(testName + "TIMEOUT")
+		return
+	}
+	if s := getErrCode(removeMsg2); s != INVALIDKEY {
+		fmt.Println(testName + "FAILED222. Got response: " + stringErrCode(s))
+		return
+	}
+
+	fmt.Println(testName + "SUCCESS")
+}
+
+func performanceTest(numClients int, duration int) {
+	for i := 0; i < numClients; i++ {
+		go requestRoutine(duration)
+	}
+	time.Sleep(time.Duration(duration+5) * time.Second)
+}
+
+func requestRoutine(duration int) {
+	startTime := time.Now()
+	count := 0
+	for time.Now().Before(startTime.Add(time.Second * time.Duration(duration))) {
+		key := GenRandomSlice(16)
+		value := GenRandomSlice(100)
+		var version int32 = 0
+
+		msg := MakePutRequest(key, value, version)
+		msg = requestReply(msg)
+
+		if msg == nil {
+			fmt.Println("TIMEOUT")
+			continue
+		}
+
+		if s := getErrCode(msg); s != SUCCESS {
+			fmt.Println(stringErrCode(s))
+			continue
+		}
+
+		msg = MakeGetRequest(key)
+		msg = requestReply(msg)
+		if msg == nil {
+			fmt.Println("TIMEOUT")
+			continue
+		}
+
+		if s := getErrCode(msg); s == SUCCESS {
+			kvResponse := getPayload(msg)
+
+			if string(kvResponse.GetValue()) != string(value) || kvResponse.GetVersion() != version {
+				fmt.Println("PUT and GET values did not match")
+			}
+		}
+
+		msg = MakeRemoveRequest(key)
+		msg = requestReply(msg)
+		if msg == nil {
+			fmt.Println("TIMEOUT")
+			continue
+		}
+
+		if s := getErrCode(msg); s != SUCCESS {
+			fmt.Println(stringErrCode(s))
+			continue
+		}
+		count++
+	}
+	fmt.Printf("Number of requests: %d\n", count)
+	fmt.Printf("Number of requests/second: %d\n", (count / duration))
+}
+
 func shutdown() {
 	testName := "SHUTDOWN TEST: "
 	msg := MakeShutDownRequest()
@@ -199,14 +329,16 @@ func requestReply(msg *pb.Msg) *pb.Msg {
 		c.SetReadDeadline(time.Now().Add(time.Millisecond * delay))
 		ret := readFromConnection()
 		if ret != nil {
-			return ret
+			if verifyMessage(msg, ret) {
+				return ret
+			}
 		}
 		i++
 	}
 	return nil
 }
 
-func getErrCode(msg *pb.Msg) uint32 {
+func getErrCode(msg *pb.Msg) int32 {
 	kvResponse := &pb.KVResponse{}
 	_ = proto.Unmarshal(msg.GetPayload(), kvResponse)
 
@@ -235,6 +367,16 @@ func readFromConnection() *pb.Msg {
 
 	msg := &pb.Msg{}
 	err = proto.Unmarshal(buffer[0:n], msg)
-	log.Println(err)
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
 	return msg
+}
+
+func verifyMessage(org *pb.Msg, ret *pb.Msg) bool {
+	if (string(org.MessageID) == string(ret.MessageID)) && VerifyCheckSum(ret) {
+		return true
+	}
+	return false
 }
