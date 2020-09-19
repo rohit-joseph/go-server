@@ -11,30 +11,33 @@ import (
 )
 
 var c *net.UDPConn
+var sendAddr *net.UDPAddr
 var timeout = 100
+var err error
 
 // TestClient runs the test client
 func TestClient(CONNECT string) {
-	s, err := net.ResolveUDPAddr("udp4", CONNECT)
-	c, err = net.DialUDP("udp4", nil, s)
+	sendAddr, err = net.ResolveUDPAddr("udp4", CONNECT)
+	testClientAddr, err := net.ResolveUDPAddr("udp4", ":55555")
+	c, err = net.ListenUDP("udp4", testClientAddr)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	fmt.Printf("The UDP server is %s\n", c.RemoteAddr().String())
+	fmt.Printf("The UDP server is %s\n", CONNECT)
 	defer c.Close()
 
-	testIsAliveRequest()
-	testPutGetRequest()
-	testWipeout()
-	testGetPid()
-	testGetMembershipCount()
-	testAtMostOnceSemantics()
-	performanceTest(1, 5)
-	performanceTest(16, 5)
-	performanceTest(32, 5)
-	performanceTest(64, 5)
+	// testIsAliveRequest()
+	// testPutGetRequest()
+	// testWipeout()
+	// testGetPid()
+	// testGetMembershipCount()
+	// testAtMostOnceSemantics()
+	performanceTest(1, 60)
+	performanceTest(2, 60)
+	performanceTest(4, 60)
+	performanceTest(8, 60)
 	// shutdown()
 }
 
@@ -240,7 +243,7 @@ func testAtMostOnceSemantics() {
 		return
 	}
 	if s := getErrCode(removeMsg2); s != INVALIDKEY {
-		fmt.Println(testName + "FAILED222. Got response: " + stringErrCode(s))
+		fmt.Println(testName + "FAILED. Got response: " + stringErrCode(s))
 		return
 	}
 
@@ -248,16 +251,41 @@ func testAtMostOnceSemantics() {
 }
 
 func performanceTest(numClients int, duration int) {
+	totalRequest := 0
+	totalSuccess := 0
+	totalTimeout := 0
+	totalFail := 0
+	totalRequestAccumulator := make(chan int, numClients)
+	totalSuccessAccumulator := make(chan int, numClients)
+	totalTimeoutAccumulator := make(chan int, numClients)
+	totalFailAccumulator := make(chan int, numClients)
 	for i := 0; i < numClients; i++ {
-		go requestRoutine(duration)
+		go requestRoutine(duration, totalRequestAccumulator, totalSuccessAccumulator, totalTimeoutAccumulator, totalFailAccumulator)
 	}
-	time.Sleep(time.Duration(duration+5) * time.Second)
+
+	for j := 0; j < numClients; j++ {
+		totalRequest += <-totalRequestAccumulator
+		totalSuccess += <-totalSuccessAccumulator
+		totalTimeout += <-totalTimeoutAccumulator
+		totalFail += <-totalFailAccumulator
+	}
+
+	fmt.Printf("Number of requests: %d\n", totalRequest)
+	fmt.Printf("Number of success: %d\n", totalSuccess)
+	fmt.Printf("Number of timeouts: %d\n", totalTimeout)
+	fmt.Printf("Number of fails: %d\n", totalFail)
+	fmt.Printf("Number of requests/second: %d\n", (totalRequest / duration))
+	fmt.Printf("Number of successful requests/second: %d\n", (totalSuccess / duration))
 }
 
-func requestRoutine(duration int) {
+func requestRoutine(duration int, requestAcc chan int, successAcc chan int, timeoutAcc chan int, failAcc chan int) {
 	startTime := time.Now()
 	count := 0
+	success := 0
+	timeout := 0
+	fail := 0
 	for time.Now().Before(startTime.Add(time.Second * time.Duration(duration))) {
+		count++
 		key := GenRandomSlice(16)
 		value := GenRandomSlice(100)
 		var version int32 = 0
@@ -266,19 +294,19 @@ func requestRoutine(duration int) {
 		msg = requestReply(msg)
 
 		if msg == nil {
-			fmt.Println("TIMEOUT")
+			timeout++
 			continue
 		}
 
 		if s := getErrCode(msg); s != SUCCESS {
-			fmt.Println(stringErrCode(s))
+			fail++
 			continue
 		}
 
 		msg = MakeGetRequest(key)
 		msg = requestReply(msg)
 		if msg == nil {
-			fmt.Println("TIMEOUT")
+			timeout++
 			continue
 		}
 
@@ -286,25 +314,27 @@ func requestRoutine(duration int) {
 			kvResponse := getPayload(msg)
 
 			if string(kvResponse.GetValue()) != string(value) || kvResponse.GetVersion() != version {
-				fmt.Println("PUT and GET values did not match")
+				fail++
 			}
 		}
 
 		msg = MakeRemoveRequest(key)
 		msg = requestReply(msg)
 		if msg == nil {
-			fmt.Println("TIMEOUT")
+			timeout++
 			continue
 		}
 
 		if s := getErrCode(msg); s != SUCCESS {
-			fmt.Println(stringErrCode(s))
+			fail++
 			continue
 		}
-		count++
+		success++
 	}
-	fmt.Printf("Number of requests: %d\n", count)
-	fmt.Printf("Number of requests/second: %d\n", (count / duration))
+	requestAcc <- count
+	successAcc <- success
+	timeoutAcc <- timeout
+	failAcc <- fail
 }
 
 func shutdown() {
@@ -354,7 +384,7 @@ func getPayload(msg *pb.Msg) *pb.KVResponse {
 
 func writeToConnection(msg *pb.Msg) {
 	out, _ := proto.Marshal(msg)
-	_, _ = c.Write(out)
+	_, _ = c.WriteToUDP(out, sendAddr)
 }
 
 func readFromConnection() *pb.Msg {

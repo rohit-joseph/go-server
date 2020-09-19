@@ -30,11 +30,9 @@ func Server(PORT string) {
 	defer connection.Close()
 	buffer := make([]byte, 2048)
 	rand.Seed(time.Now().Unix())
-
 	for {
 		n, addr, err := connection.ReadFromUDP(buffer)
 		var data []byte
-
 		msg := &pb.Msg{}
 		if err := proto.Unmarshal(buffer[0:n], msg); err != nil {
 			log.Println(err)
@@ -49,7 +47,7 @@ func Server(PORT string) {
 			data = *x
 		} else {
 			kvRequest := &pb.KVRequest{}
-			if err = proto.Unmarshal(msg.GetPayload(), kvRequest); err != nil {
+			if err := proto.Unmarshal(msg.GetPayload(), kvRequest); err != nil {
 				log.Println(err)
 				continue
 			}
@@ -57,6 +55,7 @@ func Server(PORT string) {
 			payload, err := proto.Marshal(HandleRequest(kvRequest))
 			if err != nil {
 				log.Println(err)
+				continue
 			}
 
 			msg.Payload = payload
@@ -66,12 +65,68 @@ func Server(PORT string) {
 			PutCache(msg.GetMessageID(), data)
 			if err != nil {
 				log.Println(err)
+				continue
 			}
 		}
 
 		_, err = connection.WriteToUDP(data, addr)
 		if err != nil {
 			log.Println(err)
+			continue
 		}
 	}
 }
+
+// func whatever(buffer []byte, n int, addr *net.UDPAddr) {
+// 	var data []byte
+
+// 	msg := &pb.Msg{}
+// 	if err := proto.Unmarshal(buffer[0:n], msg); err != nil {
+// 		log.Println(err)
+// 		return
+// 	}
+
+// 	if VerifyCheckSum(msg) == false {
+// 		return
+// 	}
+
+// 	if x, found := GetCache(msg.GetMessageID()); found {
+// 		data = *x
+// 	} else {
+// 		kvRequest := &pb.KVRequest{}
+// 		if err := proto.Unmarshal(msg.GetPayload(), kvRequest); err != nil {
+// 			log.Println(err)
+// 			return
+// 		}
+
+// 		payload, err := proto.Marshal(HandleRequest(kvRequest))
+// 		if err != nil {
+// 			log.Println(err)
+// 		}
+
+// 		msg.Payload = payload
+// 		msg.CheckSum = GetCheckSum(msg)
+
+// 		data, err = proto.Marshal(msg)
+// 		PutCache(msg.GetMessageID(), data)
+// 		if err != nil {
+// 			log.Println(err)
+// 		}
+// 	}
+
+// 	s, err := net.ResolveUDPAddr("udp4", ":"+strconv.Itoa(rand.Intn(30000-20000+1)+20000))
+// 	if err != nil {
+// 		log.Println(err.Error())
+// 	}
+
+// 	connection, err := net.ListenUDP("udp4", s)
+// 	if err != nil {
+// 		log.Println(err.Error())
+// 	}
+// 	defer connection.Close()
+
+// 	_, err = connection.WriteToUDP(data, addr)
+// 	if err != nil {
+// 		log.Println(err)
+// 	}
+// }
